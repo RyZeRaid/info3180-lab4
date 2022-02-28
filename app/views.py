@@ -7,7 +7,7 @@ This file creates your application.
 import os
 from .forms import UploadForm
 from app import app
-from flask import render_template, request, redirect, url_for, flash, session, abort
+from flask import render_template, request, redirect, url_for, flash, session, abort, send_from_directory
 from werkzeug.utils import secure_filename
 
 
@@ -26,6 +26,11 @@ def about():
     """Render the website's about page."""
     return render_template('about.html', name="Mary Jane")
 
+ALLOWED_EXTENSIONS = {'png', 'jpg'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload():
@@ -40,6 +45,11 @@ def upload():
         f = form.photo.data
         # Get file data and save to your uploads folder
         filename = secure_filename(f.filename)
+
+        if not allowed_file(filename):
+            flash('Wrong File Type', 'warning')
+            return render_template('upload.html', form=form)  
+
         f.save(os.path.join(
             app.config["UPLOAD_FOLDER"], filename
         ))
@@ -70,6 +80,27 @@ def logout():
     return redirect(url_for('home'))
 
 
+def get_uploaded_images():
+    rootdir = os.getcwd()
+    picFiles = []
+    print (rootdir)
+    for subdir, dirs, files in os.walk('./uploads'):
+        for file in files:
+           picFiles.append(os.path.join(subdir, file))
+    return picFiles
+
+
+@app.route("/uploads/<filename>")
+def get_image(filename):
+    return send_from_directory(os.path.join(os.getcwd(),app.config['UPLOAD_FOLDER']), path=filename)
+
+@app.route("/files")
+def files():
+    if session.get('logged_in'):
+        filename = get_uploaded_images()
+        return render_template('files.html', filenames=filename) 
+    else:
+        abort(401)
 ###
 # The functions below should be applicable to all Flask apps.
 ###
